@@ -11,6 +11,12 @@
 
 ## 安装
 
+### 快速安装（推荐）
+
+```bash
+npx add-skill jimliu/baoyu-skills
+```
+
 ### 注册插件市场
 
 在 Claude Code 中运行：

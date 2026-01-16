@@ -11,6 +11,12 @@ Skills shared by Baoyu for improving daily work efficiency with Claude Code.
 
 ## Installation
 
+### Quick Install (Recommended)
+
+```bash
+npx add-skill jimliu/baoyu-skills
+```
+
 ### Register as Plugin Marketplace
 
 Run the following command in Claude Code:
