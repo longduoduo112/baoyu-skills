@@ -198,7 +198,15 @@ CLI note: `scripts/main.ts` supports text generation, image generation, referenc
 
 ## Authentication
 
-First run opens Chrome to authenticate with Google. Cookies are cached for subsequent runs.
+First run opens a browser to authenticate with Google. Cookies are cached for subsequent runs.
+
+**Supported browsers** (auto-detected in order):
+- Google Chrome
+- Google Chrome Canary / Beta
+- Chromium
+- Microsoft Edge
+
+Override with `GEMINI_WEB_CHROME_PATH` environment variable if needed.
 
 ```bash
 # Force cookie refresh
@@ -213,6 +221,23 @@ npx -y bun ${SKILL_DIR}/scripts/main.ts --login
 | `GEMINI_WEB_COOKIE_PATH` | Cookie file path |
 | `GEMINI_WEB_CHROME_PROFILE_DIR` | Chrome profile directory |
 | `GEMINI_WEB_CHROME_PATH` | Chrome executable path |
+
+## Proxy Configuration
+
+If you need a proxy to access Google services (e.g., in China), set `HTTP_PROXY` and `HTTPS_PROXY` environment variables before running:
+
+```bash
+# Example with local proxy
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 npx -y bun ${SKILL_DIR}/scripts/main.ts "Hello"
+
+# Image generation with proxy
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 npx -y bun ${SKILL_DIR}/scripts/main.ts --prompt "A cat" --image cat.png
+
+# Cookie refresh with proxy
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 npx -y bun ${SKILL_DIR}/scripts/main.ts --login
+```
+
+**Note**: Environment variables must be set inline with the command. Shell profile settings (e.g., `.bashrc`) may not be inherited by subprocesses.
 
 ## Examples
 

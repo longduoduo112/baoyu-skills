@@ -421,9 +421,17 @@ mkdir -p .baoyu-skills/baoyu-cover-image
 
 **警告：** 本项目通过浏览器 cookies 使用非官方 API。使用风险自负。
 
-- 首次运行会打开 Chrome 进行 Google 身份验证
+- 首次运行会打开浏览器进行 Google 身份验证
 - Cookies 会被缓存供后续使用
 - 不保证 API 的稳定性或可用性
+
+**支持的浏览器**（自动检测）：Google Chrome、Chrome Canary/Beta、Chromium、Microsoft Edge
+
+**代理配置**：如果需要通过代理访问 Google 服务（如中国大陆用户），请在命令前设置环境变量：
+
+```bash
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 /baoyu-danger-gemini-web "你好"
+```
 
 ### baoyu-danger-x-to-markdown
 

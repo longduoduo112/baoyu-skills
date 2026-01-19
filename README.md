@@ -421,9 +421,17 @@ This skill uses the Gemini Web API (reverse-engineered).
 
 **Warning:** This project uses unofficial API access via browser cookies. Use at your own risk.
 
-- First run opens Chrome to authenticate with Google
+- First run opens a browser to authenticate with Google
 - Cookies are cached for subsequent runs
 - No guarantees on API stability or availability
+
+**Supported browsers** (auto-detected): Google Chrome, Chrome Canary/Beta, Chromium, Microsoft Edge
+
+**Proxy configuration**: If you need a proxy to access Google services (e.g., in China), set environment variables inline:
+
+```bash
+HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 /baoyu-danger-gemini-web "Hello"
+```
 
 ### baoyu-danger-x-to-markdown
 
