@@ -2,6 +2,12 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.21.0 - 2026-01-24
+
+### 新功能
+- `baoyu-cover-image`：扩展宽高比选项——新增 4:3、3:2、3:4 比例；默认值从 2.35:1 改为 16:9 以提高通用性。现在除非通过 `--aspect` 标志明确指定，否则始终确认宽高比。
+- `baoyu-image-gen`：重构 Google provider 以统一支持 Gemini 多模态和 Imagen 模型。为 Gemini 模型新增 `--imageSize` 参数支持（1K/2K/4K）。
+
 ## 1.20.0 - 2026-01-24
 
 ### 新功能

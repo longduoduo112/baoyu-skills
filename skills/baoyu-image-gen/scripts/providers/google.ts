@@ -2,19 +2,25 @@ import path from "node:path";
 import { readFile } from "node:fs/promises";
 import type { CliArgs } from "../types";
 
-const GOOGLE_MULTIMODAL_MODELS = ["gemini-3-pro-image-preview"];
+const GOOGLE_MULTIMODAL_MODELS = ["gemini-3-pro-image-preview", "gemini-3-flash-preview"];
 const GOOGLE_IMAGEN_MODELS = ["imagen-3.0-generate-002", "imagen-3.0-generate-001"];
 
 export function getDefaultModel(): string {
   return process.env.GOOGLE_IMAGE_MODEL || "gemini-3-pro-image-preview";
 }
 
+function normalizeGoogleModelId(model: string): string {
+  return model.startsWith("models/") ? model.slice("models/".length) : model;
+}
+
 function isGoogleMultimodal(model: string): boolean {
-  return GOOGLE_MULTIMODAL_MODELS.some((m) => model.includes(m));
+  const normalized = normalizeGoogleModelId(model);
+  return GOOGLE_MULTIMODAL_MODELS.some((m) => normalized.includes(m));
 }
 
 function isGoogleImagen(model: string): boolean {
-  return GOOGLE_IMAGEN_MODELS.some((m) => model.includes(m));
+  const normalized = normalizeGoogleModelId(model);
+  return GOOGLE_IMAGEN_MODELS.some((m) => normalized.includes(m));
 }
 
 function getGoogleApiKey(): string | null {
@@ -24,6 +30,44 @@ function getGoogleApiKey(): string | null {
 function getGoogleImageSize(args: CliArgs): "1K" | "2K" | "4K" {
   if (args.imageSize) return args.imageSize as "1K" | "2K" | "4K";
   return args.quality === "2k" ? "2K" : "1K";
+}
+
+function getGoogleBaseUrl(): string {
+  const base = process.env.GOOGLE_BASE_URL || "https://generativelanguage.googleapis.com";
+  return base.replace(/\/+$/g, "");
+}
+
+function buildGoogleUrl(pathname: string): string {
+  const base = getGoogleBaseUrl();
+  const cleanedPath = pathname.replace(/^\/+/g, "");
+  if (base.endsWith("/v1beta")) return `${base}/${cleanedPath}`;
+  return `${base}/v1beta/${cleanedPath}`;
+}
+
+function toModelPath(model: string): string {
+  const modelId = normalizeGoogleModelId(model);
+  return `models/${modelId}`;
+}
+
+async function postGoogleJson<T>(pathname: string, body: unknown): Promise<T> {
+  const apiKey = getGoogleApiKey();
+  if (!apiKey) throw new Error("GOOGLE_API_KEY or GEMINI_API_KEY is required");
+
+  const res = await fetch(buildGoogleUrl(pathname), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Google API error (${res.status}): ${err}`);
+  }
+
+  return (await res.json()) as T;
 }
 
 function buildPromptWithAspect(prompt: string, ar: string | null, quality: CliArgs["quality"]): string {
@@ -37,6 +81,11 @@ function buildPromptWithAspect(prompt: string, ar: string | null, quality: CliAr
   return result;
 }
 
+function addAspectRatioToPrompt(prompt: string, ar: string | null): string {
+  if (!ar) return prompt;
+  return `${prompt} Aspect ratio: ${ar}.`;
+}
+
 async function readImageAsBase64(p: string): Promise<{ data: string; mimeType: string }> {
   const buf = await readFile(p);
   const ext = path.extname(p).toLowerCase();
@@ -47,53 +96,74 @@ async function readImageAsBase64(p: string): Promise<{ data: string; mimeType: s
   return { data: buf.toString("base64"), mimeType };
 }
 
+function extractInlineImageData(response: {
+  candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>;
+}): string | null {
+  for (const candidate of response.candidates || []) {
+    for (const part of candidate.content?.parts || []) {
+      const data = part.inlineData?.data;
+      if (typeof data === "string" && data.length > 0) return data;
+    }
+  }
+  return null;
+}
+
+function extractPredictedImageData(response: {
+  predictions?: Array<any>;
+  generatedImages?: Array<any>;
+}): string | null {
+  const candidates = [...(response.predictions || []), ...(response.generatedImages || [])];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== "object") continue;
+    if (typeof candidate.imageBytes === "string") return candidate.imageBytes;
+    if (typeof candidate.bytesBase64Encoded === "string") return candidate.bytesBase64Encoded;
+    if (typeof candidate.data === "string") return candidate.data;
+    const image = candidate.image;
+    if (image && typeof image === "object") {
+      if (typeof image.imageBytes === "string") return image.imageBytes;
+      if (typeof image.bytesBase64Encoded === "string") return image.bytesBase64Encoded;
+      if (typeof image.data === "string") return image.data;
+    }
+  }
+  return null;
+}
+
 async function generateWithGemini(
   prompt: string,
   model: string,
   args: CliArgs
 ): Promise<Uint8Array> {
-  const { GoogleGenAI } = await import("@google/genai");
-
-  const apiKey = getGoogleApiKey();
-  if (!apiKey) throw new Error("GOOGLE_API_KEY or GEMINI_API_KEY is required");
-
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      baseUrl: process.env.GOOGLE_BASE_URL || undefined,
-    },
-  });
-
-  const input: Array<{ type: "text" | "image"; text?: string; data?: string; mime_type?: string }> = [];
+  const promptWithAspect = addAspectRatioToPrompt(prompt, args.aspectRatio);
+  const parts: Array<{ text?: string; inlineData?: { data: string; mimeType: string } }> = [];
   for (const refPath of args.referenceImages) {
     const { data, mimeType } = await readImageAsBase64(refPath);
-    input.push({ type: "image", data, mime_type: mimeType });
+    parts.push({ inlineData: { data, mimeType } });
   }
-  input.push({ type: "text", text: prompt });
+  parts.push({ text: promptWithAspect });
 
-  const imageConfig: { image_size: "1K" | "2K" | "4K"; aspect_ratio?: string } = {
-    image_size: getGoogleImageSize(args),
+  const imageConfig: { imageSize: "1K" | "2K" | "4K" } = {
+    imageSize: getGoogleImageSize(args),
   };
-  if (args.aspectRatio) {
-    imageConfig.aspect_ratio = args.aspectRatio;
-  }
 
   console.log("Generating image with Gemini...", imageConfig);
-  const interaction = await ai.interactions.create({
-    model,
-    input,
-    response_modalities: ["image"],
-    generation_config: {
-      image_config: imageConfig,
+  const response = await postGoogleJson<{
+    candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { data?: string } }> } }>;
+  }>(`${toModelPath(model)}:generateContent`, {
+    contents: [
+      {
+        role: "user",
+        parts,
+      },
+    ],
+    generationConfig: {
+      responseModalities: ["IMAGE"],
+      imageConfig,
     },
   });
   console.log("Generation completed.");
 
-  for (const output of interaction.outputs || []) {
-    if (output.type === "image" && output.data) {
-      return Uint8Array.from(Buffer.from(output.data, "base64"));
-    }
-  }
+  const imageData = extractInlineImageData(response);
+  if (imageData) return Uint8Array.from(Buffer.from(imageData, "base64"));
 
   throw new Error("No image in response");
 }
@@ -103,30 +173,40 @@ async function generateWithImagen(
   model: string,
   args: CliArgs
 ): Promise<Uint8Array> {
-  const { experimental_generateImage: generateImage } = await import("ai");
-  const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
-
-  const google = createGoogleGenerativeAI({
-    apiKey: getGoogleApiKey() || undefined,
-    baseURL: process.env.GOOGLE_BASE_URL,
-  });
-
   const fullPrompt = buildPromptWithAspect(prompt, args.aspectRatio, args.quality);
+  const imageSize = getGoogleImageSize(args);
+  if (imageSize === "4K") {
+    console.error("Warning: Imagen models do not support 4K imageSize, using 2K instead.");
+  }
 
-  const result = await generateImage({
-    model: google.image(model),
-    prompt: fullPrompt,
-    n: args.n,
-    aspectRatio: args.aspectRatio || undefined,
+  const parameters: Record<string, unknown> = {
+    sampleCount: args.n,
+  };
+  if (args.aspectRatio) {
+    parameters.aspectRatio = args.aspectRatio;
+  }
+  if (imageSize === "1K" || imageSize === "2K") {
+    parameters.imageSize = imageSize;
+  } else {
+    parameters.imageSize = "2K";
+  }
+
+  const response = await postGoogleJson<{
+    predictions?: Array<any>;
+    generatedImages?: Array<any>;
+  }>(`${toModelPath(model)}:predict`, {
+    instances: [
+      {
+        prompt: fullPrompt,
+      },
+    ],
+    parameters,
   });
 
-  const img = result.images[0];
-  if (!img) throw new Error("No image in response");
+  const imageData = extractPredictedImageData(response);
+  if (imageData) return Uint8Array.from(Buffer.from(imageData, "base64"));
 
-  if (img.uint8Array) return img.uint8Array;
-  if (img.base64) return Uint8Array.from(Buffer.from(img.base64, "base64"));
-
-  throw new Error("Cannot extract image data");
+  throw new Error("No image in response");
 }
 
 export async function generateImage(

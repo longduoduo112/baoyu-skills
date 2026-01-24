@@ -40,7 +40,7 @@ Generate elegant cover images for articles with 4-dimensional customization.
 | `--style <name>` | Cover style (see Style Gallery) |
 | `--text <level>` | Text density: none, title-only, title-subtitle, text-rich |
 | `--mood <level>` | Emotional intensity: subtle, balanced, bold |
-| `--aspect <ratio>` | 2.35:1 (default), 16:9, 1:1 |
+| `--aspect <ratio>` | 16:9 (default), 2.35:1, 4:3, 3:2, 1:1, 3:4 |
 | `--lang <code>` | Title language (en, zh, ja, etc.) |
 | `--no-title` | Alias for `--text none` |
 | `--quick` | Skip confirmation, use auto-selection for missing dimensions |
@@ -357,13 +357,17 @@ options:
 header: "Aspect"
 question: "Default aspect ratio for cover images?"
 options:
-  - label: "2.35:1 (Recommended)"
-    description: "Cinematic widescreen, best for article headers"
-  - label: "16:9"
-    description: "Standard widescreen, versatile"
+  - label: "16:9 (Recommended)"
+    description: "Standard widescreen - YouTube, presentations, versatile"
+  - label: "2.35:1"
+    description: "Cinematic widescreen - article headers, blog posts"
   - label: "1:1"
-    description: "Square, social media friendly"
+    description: "Square - Instagram, WeChat, social cards"
+  - label: "3:4"
+    description: "Portrait - Xiaohongshu, Pinterest, mobile content"
 ```
+
+Note: More ratios (4:3, 3:2) available during generation. This sets the default recommendation.
 
 **Q5: Quick Mode**
 ```yaml
@@ -415,17 +419,19 @@ Read source content, save it if needed, and perform analysis.
 
 ### Step 2: Confirm Options ⚠️
 
-**Purpose**: Validate all 4 dimensions. **Skip if `--quick` flag OR all 4 dimensions specified via CLI.**
+**Purpose**: Validate all 4 dimensions + aspect ratio.
 
 **Skip Conditions**:
-| Condition | Behavior |
-|-----------|----------|
-| `--quick` flag | Auto-select missing dimensions, skip to Step 3 |
-| All 4 dimensions specified | Use specified values, skip to Step 3 |
-| `quick_mode: true` in EXTEND.md | Auto-select missing dimensions, skip to Step 3 |
-| Otherwise | Show confirmation (current behavior) |
+| Condition | Skipped Questions | Still Asked |
+|-----------|-------------------|-------------|
+| `--quick` flag | Type, Style, Text, Mood | **Aspect Ratio** (unless `--aspect` specified) |
+| All 4 dimensions + `--aspect` specified | All | None |
+| `quick_mode: true` in EXTEND.md | Type, Style, Text, Mood | **Aspect Ratio** (unless `--aspect` specified) |
+| Otherwise | None | All 5 questions |
 
-**Quick Mode Output** (when skipping confirmation):
+**Important**: Aspect ratio is ALWAYS asked unless explicitly specified via `--aspect` CLI flag. User presets in EXTEND.md are shown as recommended option, not auto-selected.
+
+**Quick Mode Output** (when skipping 4 dimensions):
 
 ```
 Quick Mode: Auto-selected dimensions
@@ -433,9 +439,8 @@ Quick Mode: Auto-selected dimensions
 • Style: [style] ([reason])
 • Text: [text] ([reason])
 • Mood: [mood] ([reason])
-• Aspect: [aspect]
 
-Generating...
+[Then ask Question 5: Aspect Ratio]
 ```
 
 **Confirmation Flow** (when NOT skipping):
@@ -513,19 +518,27 @@ options:
     description: "High contrast, vivid colors, dynamic"
 ```
 
-**Question 5: Aspect Ratio** (if not specified via `--aspect`)
+**Question 5: Aspect Ratio** (ALWAYS ask unless `--aspect` specified via CLI)
+
+Note: Even if user has a preset in EXTEND.md, still ask this question. The preset is shown as the recommended option.
 
 ```yaml
 header: "Aspect"
 question: "Cover aspect ratio?"
 multiSelect: false
 options:
-  - label: "2.35:1 (Recommended)"
-    description: "Cinematic widescreen, best for article headers"
-  - label: "16:9"
-    description: "Standard widescreen, versatile"
+  - label: "[user preset or 16:9] (Recommended)"
+    description: "[based on preset or default: Standard widescreen, versatile]"
+  - label: "2.35:1"
+    description: "Cinematic widescreen - article headers, blog posts"
+  - label: "4:3"
+    description: "Traditional screen - PPT slides, classic displays"
+  - label: "3:2"
+    description: "Photography ratio - blog articles, Medium posts"
   - label: "1:1"
-    description: "Square, social media friendly"
+    description: "Square - Instagram, WeChat moments, social cards"
+  - label: "3:4"
+    description: "Portrait - Xiaohongshu, Pinterest, mobile-first content"
 ```
 
 **After response**: Proceed to Step 3 with confirmed dimensions.
