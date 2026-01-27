@@ -184,11 +184,13 @@ function parseHtmlMeta(htmlPath: string): { title: string; author: string; summa
   if (titleMatch) title = titleMatch[1]!;
 
   let author = '';
-  const authorMatch = content.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i);
+  const authorMatch = content.match(/<meta\s+name=["']author["']\s+content=["']([^"']+)["']/i)
+    || content.match(/<meta\s+content=["']([^"']+)["']\s+name=["']author["']/i);
   if (authorMatch) author = authorMatch[1]!;
 
   let summary = '';
-  const descMatch = content.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i);
+  const descMatch = content.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)
+    || content.match(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i);
   if (descMatch) summary = descMatch[1]!;
 
   if (!summary) {
@@ -379,6 +381,31 @@ export async function postArticle(options: ArticleOptions): Promise<void> {
       await evaluate(session, `document.querySelector('#author').value = ${JSON.stringify(effectiveAuthor)}; document.querySelector('#author').dispatchEvent(new Event('input', { bubbles: true }));`);
     }
 
+    if (effectiveSummary) {
+      console.log(`[wechat] Filling summary: ${effectiveSummary}`);
+      await evaluate(session, `document.querySelector('#js_description').value = ${JSON.stringify(effectiveSummary)}; document.querySelector('#js_description').dispatchEvent(new Event('input', { bubbles: true }));`);
+    }
+
+    await sleep(500);
+
+    if (effectiveTitle) {
+      const actualTitle = await evaluate<string>(session, `document.querySelector('#title')?.value || ''`);
+      if (actualTitle === effectiveTitle) {
+        console.log('[wechat] Title verified OK.');
+      } else {
+        console.warn(`[wechat] Title verification failed. Expected: "${effectiveTitle}", got: "${actualTitle}"`);
+      }
+    }
+
+    if (effectiveSummary) {
+      const actualSummary = await evaluate<string>(session, `document.querySelector('#js_description')?.value || ''`);
+      if (actualSummary === effectiveSummary) {
+        console.log('[wechat] Summary verified OK.');
+      } else {
+        console.warn(`[wechat] Summary verification failed. Expected: "${effectiveSummary}", got: "${actualSummary}"`);
+      }
+    }
+
     console.log('[wechat] Clicking on editor...');
     await clickElement(session, '.ProseMirror');
     await sleep(1000);
@@ -394,6 +421,20 @@ export async function postArticle(options: ArticleOptions): Promise<void> {
       console.log('[wechat] Pasting into editor...');
       await pasteFromClipboardInEditor(session);
       await sleep(3000);
+
+      const editorHasContent = await evaluate<boolean>(session, `
+        (function() {
+          const editor = document.querySelector('.ProseMirror');
+          if (!editor) return false;
+          const text = editor.innerText?.trim() || '';
+          return text.length > 0;
+        })()
+      `);
+      if (editorHasContent) {
+        console.log('[wechat] Body content verified OK.');
+      } else {
+        console.warn('[wechat] Body content verification failed: editor appears empty after paste.');
+      }
 
       if (contentImages.length > 0) {
         console.log(`[wechat] Inserting ${contentImages.length} images...`);
@@ -437,11 +478,20 @@ export async function postArticle(options: ArticleOptions): Promise<void> {
       console.log('[wechat] Typing content...');
       await typeText(session, content);
       await sleep(1000);
-    }
 
-    if (effectiveSummary) {
-      console.log(`[wechat] Filling summary: ${effectiveSummary}`);
-      await evaluate(session, `document.querySelector('#js_description').value = ${JSON.stringify(effectiveSummary)}; document.querySelector('#js_description').dispatchEvent(new Event('input', { bubbles: true }));`);
+      const editorHasContent = await evaluate<boolean>(session, `
+        (function() {
+          const editor = document.querySelector('.ProseMirror');
+          if (!editor) return false;
+          const text = editor.innerText?.trim() || '';
+          return text.length > 0;
+        })()
+      `);
+      if (editorHasContent) {
+        console.log('[wechat] Body content verified OK.');
+      } else {
+        console.warn('[wechat] Body content verification failed: editor appears empty after typing.');
+      }
     }
 
     console.log('[wechat] Saving as draft...');
