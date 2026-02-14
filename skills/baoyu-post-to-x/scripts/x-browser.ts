@@ -117,6 +117,12 @@ export async function postToX(options: XBrowserOptions): Promise<void> {
         continue;
       }
 
+      // Count uploaded images before paste
+      const imgCountBefore = await cdp.send<{ result: { value: number } }>('Runtime.evaluate', {
+        expression: `document.querySelectorAll('img[src^="blob:"]').length`,
+        returnByValue: true,
+      }, { sessionId });
+
       // Wait for clipboard to be ready
       await sleep(500);
 
@@ -150,8 +156,27 @@ export async function postToX(options: XBrowserOptions): Promise<void> {
         }, { sessionId });
       }
 
-      console.log('[x-browser] Waiting for image upload...');
-      await sleep(4000);
+      console.log('[x-browser] Verifying image upload...');
+      const expectedImgCount = imgCountBefore.result.value + 1;
+      let imgUploadOk = false;
+      const imgWaitStart = Date.now();
+      while (Date.now() - imgWaitStart < 15_000) {
+        const r = await cdp!.send<{ result: { value: number } }>('Runtime.evaluate', {
+          expression: `document.querySelectorAll('img[src^="blob:"]').length`,
+          returnByValue: true,
+        }, { sessionId });
+        if (r.result.value >= expectedImgCount) {
+          imgUploadOk = true;
+          break;
+        }
+        await sleep(1000);
+      }
+
+      if (imgUploadOk) {
+        console.log('[x-browser] Image upload verified');
+      } else {
+        console.warn('[x-browser] Image upload not detected after 15s. Run check-paste-permissions.ts to diagnose.');
+      }
     }
 
     if (submit) {

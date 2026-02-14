@@ -26,6 +26,7 @@ Posts text, images, videos, and long-form articles to X via real Chrome browser 
 | `scripts/md-to-html.ts` | Markdown → HTML conversion |
 | `scripts/copy-to-clipboard.ts` | Copy content to clipboard |
 | `scripts/paste-from-clipboard.ts` | Send real paste keystroke |
+| `scripts/check-paste-permissions.ts` | Verify environment & permissions |
 
 ## Preferences (EXTEND.md)
 
@@ -62,6 +63,28 @@ test -f "$HOME/.baoyu-skills/baoyu-post-to-x/EXTEND.md" && echo "user"
 - Google Chrome or Chromium
 - `bun` runtime
 - First run: log in to X manually (session saved)
+
+## Pre-flight Check (Optional)
+
+Before first use, suggest running the environment check. User can skip if they prefer.
+
+```bash
+npx -y bun ${SKILL_DIR}/scripts/check-paste-permissions.ts
+```
+
+Checks: Chrome, profile isolation, Bun, Accessibility, clipboard, paste keystroke, Chrome conflicts.
+
+**If any check fails**, provide fix guidance per item:
+
+| Check | Fix |
+|-------|-----|
+| Chrome | Install Chrome or set `X_BROWSER_CHROME_PATH` env var |
+| Profile dir | Ensure `~/.local/share/x-browser-profile` is writable |
+| Bun runtime | `curl -fsSL https://bun.sh/install \| bash` |
+| Accessibility (macOS) | System Settings → Privacy & Security → Accessibility → enable terminal app |
+| Clipboard copy | Ensure Swift/AppKit available (macOS Xcode CLI tools: `xcode-select --install`) |
+| Paste keystroke (macOS) | Same as Accessibility fix above |
+| Paste keystroke (Linux) | Install `xdotool` (X11) or `ydotool` (Wayland) |
 
 ## References
 
@@ -150,6 +173,18 @@ npx -y bun ${SKILL_DIR}/scripts/x-article.ts article.md --submit               #
 **Frontmatter**: `title`, `cover_image` supported in YAML front matter.
 
 ---
+
+## Troubleshooting
+
+### Chrome debug port not ready
+
+If a script fails with `Chrome debug port not ready` or `Unable to connect`, kill existing Chrome CDP instances first, then retry:
+
+```bash
+pkill -f "Chrome.*remote-debugging-port" 2>/dev/null; pkill -f "Chromium.*remote-debugging-port" 2>/dev/null; sleep 2
+```
+
+**Important**: This should be done automatically — when encountering this error, kill Chrome CDP instances and retry the command without asking the user.
 
 ## Notes
 

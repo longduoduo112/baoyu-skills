@@ -602,6 +602,12 @@ export async function publishArticle(options: ArticleOptions): Promise<void> {
           await sleep(500);
         }
 
+        // Count existing image blocks before paste
+        const imgCountBefore = await cdp.send<{ result: { value: number } }>('Runtime.evaluate', {
+          expression: `document.querySelectorAll('section[data-block="true"][contenteditable="false"] img[src^="blob:"]').length`,
+          returnByValue: true,
+        }, { sessionId });
+
         // Focus editor to ensure cursor is in position
         await cdp.send('Runtime.evaluate', {
           expression: `(() => {
@@ -619,9 +625,31 @@ export async function publishArticle(options: ArticleOptions): Promise<void> {
           console.warn(`[x-article] Failed to paste image after retries`);
         }
 
-        // Wait for image to upload
-        console.log(`[x-article] Waiting for upload...`);
-        await sleep(5000);
+        // Verify image appeared in editor
+        console.log(`[x-article] Verifying image upload...`);
+        const expectedImgCount = imgCountBefore.result.value + 1;
+        let imgUploadOk = false;
+        const imgWaitStart = Date.now();
+        while (Date.now() - imgWaitStart < 15_000) {
+          const r = await cdp!.send<{ result: { value: number } }>('Runtime.evaluate', {
+            expression: `document.querySelectorAll('section[data-block="true"][contenteditable="false"] img[src^="blob:"]').length`,
+            returnByValue: true,
+          }, { sessionId });
+          if (r.result.value >= expectedImgCount) {
+            imgUploadOk = true;
+            break;
+          }
+          await sleep(1000);
+        }
+
+        if (imgUploadOk) {
+          console.log(`[x-article] Image upload verified (${expectedImgCount} image block(s))`);
+        } else {
+          console.warn(`[x-article] Image upload not detected after 15s`);
+          if (i === 0) {
+            console.error('[x-article] First image paste failed. Run check-paste-permissions.ts to diagnose.');
+          }
+        }
       }
 
       console.log('[x-article] All images processed.');
