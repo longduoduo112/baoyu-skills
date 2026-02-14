@@ -7,6 +7,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { createHash } from 'node:crypto';
 
+import frontMatter from 'front-matter';
+import hljs from 'highlight.js/lib/common';
+import { Lexer, Marked, type RendererObject, type Tokens } from 'marked';
+import { unified } from 'unified';
+import remarkCjkFriendly from 'remark-cjk-friendly';
+import remarkParse from 'remark-parse';
+import remarkStringify from 'remark-stringify';
+
 interface ImageInfo {
   placeholder: string;
   localPath: string;
@@ -22,25 +30,80 @@ interface ParsedMarkdown {
   totalBlocks: number;
 }
 
-function parseFrontmatter(content: string): { frontmatter: Record<string, string>; body: string } {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
-  if (!match) return { frontmatter: {}, body: content };
+type FrontmatterFields = Record<string, unknown>;
 
-  const frontmatter: Record<string, string> = {};
-  const lines = match[1]!.split('\n');
-  for (const line of lines) {
-    const colonIdx = line.indexOf(':');
-    if (colonIdx > 0) {
-      const key = line.slice(0, colonIdx).trim();
-      let value = line.slice(colonIdx + 1).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
+function parseFrontmatter(content: string): { frontmatter: FrontmatterFields; body: string } {
+  try {
+    const parsed = frontMatter<FrontmatterFields>(content);
+    return {
+      frontmatter: parsed.attributes ?? {},
+      body: parsed.body,
+    };
+  } catch {
+    return { frontmatter: {}, body: content };
+  }
+}
+
+function stripWrappingQuotes(value: string): string {
+  if (!value) return value;
+  const doubleQuoted = value.startsWith('"') && value.endsWith('"');
+  const singleQuoted = value.startsWith("'") && value.endsWith("'");
+  const cjkDoubleQuoted = value.startsWith('\u201c') && value.endsWith('\u201d');
+  const cjkSingleQuoted = value.startsWith('\u2018') && value.endsWith('\u2019');
+  if (doubleQuoted || singleQuoted || cjkDoubleQuoted || cjkSingleQuoted) {
+    return value.slice(1, -1).trim();
+  }
+  return value.trim();
+}
+
+function toFrontmatterString(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return stripWrappingQuotes(value);
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return undefined;
+}
+
+function pickFirstString(frontmatter: FrontmatterFields, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = toFrontmatterString(frontmatter[key]);
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function findCoverImageNearMarkdown(baseDir: string): string | null {
+  const candidateDirs = [baseDir, path.join(baseDir, 'imgs')];
+  const coverPattern = /^cover\.(png|jpe?g|webp)$/i;
+
+  for (const dir of candidateDirs) {
+    try {
+      if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+        continue;
       }
-      frontmatter[key] = value;
+
+      const match = fs.readdirSync(dir).find((entry) => coverPattern.test(entry));
+      if (match) {
+        return path.join(dir, match);
+      }
+    } catch {
+      continue;
     }
   }
 
-  return { frontmatter, body: match[2]! };
+  return null;
+}
+
+function extractTitleFromMarkdown(markdown: string): string {
+  const tokens = Lexer.lex(markdown, { gfm: true, breaks: true });
+  for (const token of tokens) {
+    if (token.type === 'heading' && token.depth === 1) {
+      return stripWrappingQuotes(token.text);
+    }
+  }
+  return '';
 }
 
 function downloadFile(url: string, destPath: string): Promise<void> {
@@ -116,141 +179,99 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function highlightCode(code: string, lang: string): string {
+  try {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+    }
+    return hljs.highlightAuto(code).value;
+  } catch {
+    return escapeHtml(code);
+  }
+}
+
+function preprocessCjkMarkdown(markdown: string): string {
+  try {
+    const processor = unified()
+      .use(remarkParse)
+      .use(remarkCjkFriendly)
+      .use(remarkStringify);
+
+    const result = String(processor.processSync(markdown));
+    return result.replace(/&#x([0-9A-Fa-f]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)));
+  } catch {
+    return markdown;
+  }
 }
 
 function convertMarkdownToHtml(markdown: string, imageCallback: (src: string, alt: string) => string): { html: string; totalBlocks: number } {
-  const lines = markdown.split('\n');
-  const blocks: string[] = [];
-  let inCodeBlock = false;
-  let codeBlockContent: string[] = [];
-  let inList = false;
-  let listItems: string[] = [];
-  let listType: 'ul' | 'ol' = 'ul';
+  const preprocessedMarkdown = preprocessCjkMarkdown(markdown);
+  const blockTokens = Lexer.lex(preprocessedMarkdown, { gfm: true, breaks: true });
 
-  const flushList = () => {
-    if (listItems.length > 0) {
-      const tag = listType === 'ol' ? 'ol' : 'ul';
-      blocks.push(`<${tag}>${listItems.map((item) => `<li>${item}</li>`).join('')}</${tag}>`);
-      listItems = [];
-      inList = false;
-    }
+  const renderer: RendererObject = {
+    heading({ depth, tokens }: Tokens.Heading): string {
+      if (depth === 1) {
+        return '';
+      }
+      return `<h2>${this.parser.parseInline(tokens)}</h2>`;
+    },
+
+    paragraph({ tokens }: Tokens.Paragraph): string {
+      const text = this.parser.parseInline(tokens).trim();
+      if (!text) return '';
+      return `<p>${text}</p>`;
+    },
+
+    blockquote({ tokens }: Tokens.Blockquote): string {
+      return `<blockquote>${this.parser.parse(tokens)}</blockquote>`;
+    },
+
+    code({ text, lang = '' }: Tokens.Code): string {
+      const language = lang.split(/\s+/)[0]!.toLowerCase();
+      const source = text.replace(/\n$/, '');
+      const highlighted = highlightCode(source, language).replace(/\n/g, '<br>');
+      const label = language ? `<strong>[${escapeHtml(language)}]</strong><br>` : '';
+      return `<blockquote>${label}${highlighted}</blockquote>`;
+    },
+
+    image({ href, text }: Tokens.Image): string {
+      if (!href) return '';
+      return imageCallback(href, text ?? '');
+    },
+
+    link({ href, title, tokens, text }: Tokens.Link): string {
+      const label = tokens?.length ? this.parser.parseInline(tokens) : escapeHtml(text || href || '');
+      if (!href) return label;
+
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
+      return `<a href="${escapeHtml(href)}"${titleAttr} rel="noopener noreferrer nofollow">${label}</a>`;
+    },
   };
 
-  const processInline = (text: string): string => {
-    // Bold
-    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  const parser = new Marked({
+    gfm: true,
+    breaks: true,
+  });
+  parser.use({ renderer });
 
-    // Italic
-    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
-    text = text.replace(/_(.+?)_/g, '<em>$1</em>');
-
-    // Links
-    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-    // Inline code
-    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-    return text;
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-
-    // Code block
-    if (line.startsWith('```')) {
-      if (inCodeBlock) {
-        // X doesn't support <pre><code>, convert to blockquote
-        const codeContent = codeBlockContent.map((l) => escapeHtml(l)).join('<br>');
-        blocks.push(`<blockquote>${codeContent}</blockquote>`);
-        codeBlockContent = [];
-        inCodeBlock = false;
-      } else {
-        flushList();
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBlockContent.push(line);
-      continue;
-    }
-
-    // Empty line
-    if (line.trim() === '') {
-      flushList();
-      continue;
-    }
-
-    // Image
-    const imgMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)\s*$/);
-    if (imgMatch) {
-      flushList();
-      const placeholder = imageCallback(imgMatch[2]!, imgMatch[1]!);
-      blocks.push(`<p>${placeholder}</p>`);
-      continue;
-    }
-
-    // Heading (H1 is title, skip it; H2-H6 become H2)
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-    if (headingMatch) {
-      flushList();
-      const level = headingMatch[1]!.length;
-      if (level === 1) continue; // Skip H1, it's the title
-      blocks.push(`<h2>${processInline(headingMatch[2]!)}</h2>`);
-      continue;
-    }
-
-    // Blockquote
-    if (line.startsWith('> ')) {
-      flushList();
-      blocks.push(`<blockquote>${processInline(line.slice(2))}</blockquote>`);
-      continue;
-    }
-
-    // Unordered list
-    const ulMatch = line.match(/^[-*]\s+(.+)$/);
-    if (ulMatch) {
-      if (!inList || listType !== 'ul') {
-        flushList();
-        inList = true;
-        listType = 'ul';
-      }
-      listItems.push(processInline(ulMatch[1]!));
-      continue;
-    }
-
-    // Ordered list
-    const olMatch = line.match(/^\d+\.\s+(.+)$/);
-    if (olMatch) {
-      if (!inList || listType !== 'ol') {
-        flushList();
-        inList = true;
-        listType = 'ol';
-      }
-      listItems.push(processInline(olMatch[1]!));
-      continue;
-    }
-
-    // Horizontal rule
-    if (/^[-*_]{3,}\s*$/.test(line)) {
-      flushList();
-      blocks.push('<hr>');
-      continue;
-    }
-
-    // Regular paragraph
-    flushList();
-    blocks.push(`<p>${processInline(line)}</p>`);
+  const rendered = parser.parse(preprocessedMarkdown);
+  if (typeof rendered !== 'string') {
+    throw new Error('Unexpected async markdown parse result');
   }
 
-  flushList();
+  const totalBlocks = blockTokens.filter((token) => {
+    if (token.type === 'space') return false;
+    if (token.type === 'heading' && token.depth === 1) return false;
+    return true;
+  }).length;
 
   return {
-    html: blocks.join('\n'),
-    totalBlocks: blocks.length,
+    html: rendered,
+    totalBlocks,
   };
 }
 
@@ -266,59 +287,58 @@ export async function parseMarkdown(
 
   const { frontmatter, body } = parseFrontmatter(content);
 
-  // Extract title from frontmatter, option, or first H1
-  let title = options?.title ?? frontmatter.title ?? '';
+  let title = stripWrappingQuotes(options?.title ?? '') || pickFirstString(frontmatter, ['title']) || '';
   if (!title) {
-    const h1Match = body.match(/^#\s+(.+)$/m);
-    if (h1Match) title = h1Match[1]!;
+    title = extractTitleFromMarkdown(body);
+  }
+  if (!title) {
+    title = path.basename(markdownPath, path.extname(markdownPath));
   }
 
-  // Extract cover image from frontmatter or option
-  let coverImagePath = options?.coverImage ?? frontmatter.cover_image ?? frontmatter.coverImage ?? frontmatter.cover ?? frontmatter.image ?? frontmatter.featureImage ?? frontmatter.feature_image ?? null;
+  let coverImagePath = stripWrappingQuotes(options?.coverImage ?? '') || pickFirstString(frontmatter, [
+    'cover_image',
+    'coverImage',
+    'cover',
+    'image',
+    'featureImage',
+    'feature_image',
+  ]) || null;
+  if (!coverImagePath) {
+    coverImagePath = findCoverImageNearMarkdown(baseDir);
+  }
 
   const images: Array<{ src: string; alt: string; blockIndex: number }> = [];
   let imageCounter = 0;
 
   const { html, totalBlocks } = convertMarkdownToHtml(body, (src, alt) => {
     const placeholder = `XIMGPH_${++imageCounter}`;
-    const currentBlockIndex = images.length; // Will be set properly after HTML generation
-
-    images.push({ src, alt, blockIndex: -1 }); // blockIndex set later
+    images.push({ src, alt, blockIndex: -1 });
     return placeholder;
   });
 
-  // Update block indices by finding placeholders in HTML
   const htmlLines = html.split('\n');
-  let blockIdx = 0;
-  for (const line of htmlLines) {
-    for (let i = 0; i < images.length; i++) {
-      const placeholder = `XIMGPH_${i + 1}`;
-      if (line.includes(placeholder)) {
-        images[i]!.blockIndex = blockIdx;
+  for (let i = 0; i < images.length; i++) {
+    const placeholder = `XIMGPH_${i + 1}`;
+    for (let lineIndex = 0; lineIndex < htmlLines.length; lineIndex++) {
+      const regex = new RegExp(`\\b${placeholder}\\b`);
+      if (regex.test(htmlLines[lineIndex]!)) {
+        images[i]!.blockIndex = lineIndex;
+        break;
       }
     }
-    blockIdx++;
   }
 
-  // Resolve image paths (download remote, resolve relative)
   const contentImages: ImageInfo[] = [];
-  let isFirstImage = true;
-  let coverPlaceholder: string | null = null;
+  let firstImageAsCover: string | null = null;
 
   for (let i = 0; i < images.length; i++) {
     const img = images[i]!;
     const localPath = await resolveImagePath(img.src, baseDir, tempDir);
 
-    // First image becomes cover if no cover specified
-    if (isFirstImage && !coverImagePath) {
-      coverImagePath = localPath;
-      coverPlaceholder = `XIMGPH_${i + 1}`;
-      isFirstImage = false;
-      // Don't add to contentImages, it's the cover
-      continue;
+    if (i === 0 && !coverImagePath) {
+      firstImageAsCover = localPath;
     }
 
-    isFirstImage = false;
     contentImages.push({
       placeholder: `XIMGPH_${i + 1}`,
       localPath,
@@ -327,17 +347,13 @@ export async function parseMarkdown(
     });
   }
 
-  // Remove cover placeholder from HTML if first image was used as cover
-  let finalHtml = html;
-  if (coverPlaceholder) {
-    // Remove the placeholder and its containing <p> tag
-    finalHtml = finalHtml.replace(new RegExp(`<p>${coverPlaceholder}</p>\\n?`, 'g'), '');
-  }
+  const finalHtml = html.replace(/\n{3,}/g, '\n\n').trim();
 
-  // Resolve cover image path
   let resolvedCoverImage: string | null = null;
   if (coverImagePath) {
     resolvedCoverImage = await resolveImagePath(coverImagePath, baseDir, tempDir);
+  } else if (firstImageAsCover) {
+    resolvedCoverImage = firstImageAsCover;
   }
 
   return {
