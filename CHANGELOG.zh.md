@@ -2,6 +2,14 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.34.0 - 2026-02-17
+
+### 新功能
+- `baoyu-xhs-images`：新增参考图片链功能，确保多图系列的视觉一致性 (by @jeffrey94)
+
+### 重构
+- `baoyu-article-illustrator`：将提示词文件创建设为生成图片前的阻断步骤，新增结构化提示词质量要求（ZONES / LABELS / COLORS / STYLE / ASPECT）和验证清单。
+
 ## 1.33.1 - 2026-02-14
 
 ### 重构

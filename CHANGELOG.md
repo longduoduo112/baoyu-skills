@@ -2,6 +2,14 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.34.0 - 2026-02-17
+
+### Features
+- `baoyu-xhs-images`: add reference image chain for visual consistency across multi-image series (by @jeffrey94)
+
+### Refactor
+- `baoyu-article-illustrator`: enforce prompt file creation as blocking step before image generation, add structured prompt quality requirements (ZONES / LABELS / COLORS / STYLE / ASPECT) and verification checklist.
+
 ## 1.33.1 - 2026-02-14
 
 ### Refactor
