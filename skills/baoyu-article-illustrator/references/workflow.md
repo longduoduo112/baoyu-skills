@@ -165,9 +165,16 @@ For each reference image:
 
 **Do NOT skip.** Use ONE AskUserQuestion call with max 4 questions. **Q1, Q2, Q3 are ALL REQUIRED.**
 
-### Q1: Illustration Type ⚠️ REQUIRED
-- [Recommended based on analysis] (Recommended)
-- infographic / scene / flowchart / comparison / framework / timeline / mixed
+### Q1: Preset or Type ⚠️ REQUIRED
+
+Based on Step 2 content analysis, recommend a preset first (sets both type & style). Look up [style-presets.md](style-presets.md) "Content Type → Preset Recommendations" table.
+
+- [Recommended preset] — [brief: type + style + why] (Recommended)
+- [Alternative preset] — [brief]
+- Or choose type manually: infographic / scene / flowchart / comparison / framework / timeline / mixed
+
+**If user picks a preset → skip Q3** (type & style both resolved).
+**If user picks a type → Q3 is REQUIRED.**
 
 ### Q2: Density ⚠️ REQUIRED - DO NOT SKIP
 - minimal (1-2) - Core concepts only
@@ -175,7 +182,7 @@ For each reference image:
 - per-section - At least 1 per section/chapter (Recommended)
 - rich (6+) - Comprehensive coverage
 
-### Q3: Style ⚠️ REQUIRED (ALWAYS ask, even with preferred_style in EXTEND.md)
+### Q3: Style ⚠️ REQUIRED (skip if preset chosen in Q1)
 
 If EXTEND.md has `preferred_style`:
 - [Custom style name + brief description] (Recommended)
@@ -191,14 +198,14 @@ If no `preferred_style` (present Core Styles first):
 
 **Core Styles** (simplified selection):
 
-| Core Style | Best For |
-|------------|----------|
-| `minimal-flat` | General, knowledge sharing, SaaS |
-| `sci-fi` | AI, frontier tech, system design |
-| `hand-drawn` | Relaxed, reflective, casual |
-| `editorial` | Processes, data, journalism |
-| `scene` | Narratives, emotional, lifestyle |
-| `poster` | Opinion, editorial, cultural, cinematic |
+| Core Style | Maps To | Best For |
+|------------|---------|----------|
+| `minimal-flat` | notion | General, knowledge sharing, SaaS |
+| `sci-fi` | blueprint | AI, frontier tech, system design |
+| `hand-drawn` | sketch/warm | Relaxed, reflective, casual |
+| `editorial` | editorial | Processes, data, journalism |
+| `scene` | warm/watercolor | Narratives, emotional, lifestyle |
+| `poster` | screen-print | Opinion, editorial, cultural, cinematic |
 
 Style selection based on Type × Style compatibility matrix (styles.md).
 Full specs: `styles/<style>.md`
