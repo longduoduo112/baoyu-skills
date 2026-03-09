@@ -20,15 +20,21 @@ function toSafeJsStringLiteral(value: string): string {
     .replace(/\u2029/g, '\\u2029');
 }
 
-function runAgentBrowser(args: string[]): { success: boolean; output: string } {
+function runAgentBrowser(args: string[]): {
+  success: boolean;
+  output: string;
+  spawnError?: string;
+} {
   const result = spawnSync('agent-browser', ['--session', SESSION, ...args], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe']
   });
+  const spawnError = result.error?.message?.trim();
   const output = result.stdout || result.stderr || '';
   return {
     success: result.status === 0,
-    output
+    output: output || spawnError || '',
+    spawnError
   };
 }
 
@@ -36,6 +42,9 @@ function ab(args: string[], json = false): string {
   const fullArgs = json ? [...args, '--json'] : args;
   console.log(`[ab] agent-browser --session ${SESSION} ${fullArgs.map(quoteForLog).join(' ')}`);
   const result = runAgentBrowser(fullArgs);
+  if (result.spawnError) {
+    throw new Error(`agent-browser failed to start: ${result.spawnError}`);
+  }
   if (!result.success) {
     console.error(`[ab] Error: ${result.output.trim()}`);
   }
