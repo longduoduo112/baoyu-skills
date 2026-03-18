@@ -237,6 +237,22 @@ function resolveEntityTweetLines(
   return lines;
 }
 
+function resolveEntityMarkdownLines(
+  entityKey: number | undefined,
+  entityMap: ArticleContentState["entityMap"] | undefined,
+  entityLookup: EntityLookup
+): string[] {
+  if (entityKey === undefined) return [];
+  const entry = resolveEntityEntry(entityKey, entityMap, entityLookup);
+  const value = entry?.value;
+  if (!value || value.type !== "MARKDOWN") return [];
+
+  const markdown = typeof value.data?.markdown === "string" ? value.data.markdown : "";
+  const normalized = markdown.replace(/\r\n/g, "\n").trimEnd();
+  if (!normalized) return [];
+  return normalized.split("\n");
+}
+
 function buildMediaLinkMap(
   entityMap: ArticleContentState["entityMap"] | undefined
 ): Map<number, string> {
@@ -397,6 +413,16 @@ function renderContentBlocks(
     return [...new Set(linkLines)];
   };
 
+  const collectMarkdownLines = (block: ArticleBlock): string[] => {
+    const ranges = Array.isArray(block.entityRanges) ? block.entityRanges : [];
+    const markdownLines: string[] = [];
+    for (const range of ranges) {
+      if (typeof range?.key !== "number") continue;
+      markdownLines.push(...resolveEntityMarkdownLines(range.key, entityMap, entityLookup));
+    }
+    return markdownLines;
+  };
+
   const pushTrailingMedia = (mediaLines: string[]) => {
     if (mediaLines.length > 0) {
       pushBlock(mediaLines, "media");
@@ -439,6 +465,11 @@ function renderContentBlocks(
       const tweetLines = collectTweetLines(block);
       if (tweetLines.length > 0) {
         pushBlock(tweetLines, "quote");
+      }
+
+      const markdownLines = collectMarkdownLines(block);
+      if (markdownLines.length > 0) {
+        pushBlock(markdownLines, "text");
       }
 
       const mediaLines = collectMediaLines(block);
