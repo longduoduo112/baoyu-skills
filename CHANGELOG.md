@@ -2,6 +2,14 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.77.0 - 2026-03-22
+
+### Features
+- `baoyu-youtube-transcript`: add end times to chapter data (by @jzOcb)
+
+### Fixes
+- `sync-clawhub`: skip failed skills instead of aborting
+
 ## 1.76.1 - 2026-03-21
 
 ### Documentation

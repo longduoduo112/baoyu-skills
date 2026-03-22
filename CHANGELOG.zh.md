@@ -2,6 +2,14 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.77.0 - 2026-03-22
+
+### 新功能
+- `baoyu-youtube-transcript`：为章节数据添加结束时间 (by @jzOcb)
+
+### 修复
+- `sync-clawhub`：跳过失败的技能而不是中止同步
+
 ## 1.76.1 - 2026-03-21
 
 ### 文档
