@@ -263,7 +263,7 @@ function parseChapters(description: string, duration: number = 0): Chapter[] {
   return raw.map((ch, i) => ({
     title: ch.title,
     start: ch.start,
-    end: i < raw.length - 1 ? raw[i + 1].start : duration,
+    end: i < raw.length - 1 ? raw[i + 1].start : Math.max(duration, ch.start),
   }));
 }
 
@@ -700,13 +700,13 @@ async function processVideo(videoId: string, opts: Options): Promise<VideoResult
     const wantLangs = opts.translate ? [opts.translate] : opts.languages;
     if (!wantLangs.includes(meta.language.code)) needsFetch = true;
     // Backfill chapter end times for caches created before this field existed
-    if (meta.chapters.length > 0 && meta.chapters[0].end === undefined) {
+    if (!needsFetch && meta.chapters.length > 0 && meta.chapters.some((ch: any) => ch.end === undefined)) {
       for (let i = 0; i < meta.chapters.length; i++) {
-        (meta.chapters[i] as any).end = i < meta.chapters.length - 1
+        meta.chapters[i].end = i < meta.chapters.length - 1
           ? meta.chapters[i + 1].start
-          : meta.duration;
+          : Math.max(meta.duration, meta.chapters[i].start);
       }
-      writeFileSync(join(videoDir, "meta.json"), JSON.stringify(meta, null, 2));
+      try { writeFileSync(join(videoDir, "meta.json"), JSON.stringify(meta, null, 2)); } catch {}
     }
   }
 
