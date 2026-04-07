@@ -11,8 +11,10 @@ Content signals determine default art + tone + layout (or preset).
 | Technical explanation, educational | manga | neutral | webtoon | **ohmsha** |
 | Pre-1950, classical, ancient | realistic | vintage | cinematic | - |
 | Personal story, mentor | ligne-claire | warm | standard | - |
+| Psychology, motivation, self-help, coaching | manga | warm | standard | **concept-story** |
+| Business narrative, management, leadership | manga | warm | standard | **concept-story** |
 | Conflict, breakthrough | (inherit) | dramatic | splash | - |
-| Wine, food, business, lifestyle | realistic | neutral | cinematic | - |
+| Wine, food, lifestyle | realistic | neutral | cinematic | - |
 | Martial arts, wuxia, xianxia | ink-brush | action | splash | **wuxia** |
 | Romance, love, school life | manga | romantic | standard | **shoujo** |
 | Biography, balanced | ligne-claire | neutral | mixed | - |
@@ -35,6 +37,11 @@ Content signals determine default art + tone + layout (or preset).
 - **Triggers**: Romance, love story, school life, emotional drama
 - **Special rules**: Decorative elements, eye details, romantic beats
 - **Base**: manga + romantic + standard
+
+### concept-story
+- **Triggers**: Psychology, motivation, self-help, business narrative, management, leadership, personal growth, coaching, soft skills, abstract concept through story
+- **Special rules**: Visual symbol system, growth arc, dialogue+action balance, original characters
+- **Base**: manga + warm + standard
 
 ## Compatibility Matrix
 

@@ -77,6 +77,7 @@ Presets with special rules beyond art+tone:
 | `--style ohmsha` | `--art manga --tone neutral` | Visual metaphors, NO talking heads, gadget reveals |
 | `--style wuxia` | `--art ink-brush --tone action` | Qi effects, combat visuals, atmospheric elements |
 | `--style shoujo` | `--art manga --tone romantic` | Decorative elements, eye details, romantic beats |
+| `--style concept-story` | `--art manga --tone warm` | Visual symbol system, growth arc, dialogue+action balance |
 
 ### Compatibility Matrix
 
@@ -101,6 +102,7 @@ Content signals determine default art + tone + layout (or preset):
 | Personal story, mentor | ligne-claire + warm |
 | Martial arts, wuxia | **wuxia** preset |
 | Romance, school life | **shoujo** preset |
+| Psychology, motivation, business narrative | **concept-story** preset |
 | Biography, balanced | ligne-claire + neutral |
 
 **When preset is recommended**: Load `references/presets/{preset}.md` and apply all special rules.
@@ -275,7 +277,7 @@ Schema: [references/config/preferences-schema.md](references/config/preferences-
 **Style Definitions**:
 - `references/art-styles/` - Art styles (ligne-claire, manga, realistic, ink-brush, chalk)
 - `references/tones/` - Tones (neutral, warm, dramatic, romantic, energetic, vintage, action)
-- `references/presets/` - Presets with special rules (ohmsha, wuxia, shoujo)
+- `references/presets/` - Presets with special rules (ohmsha, wuxia, shoujo, concept-story)
 - `references/layouts/` - Layouts (standard, cinematic, dense, splash, mixed, webtoon)
 
 **Workflow**:
