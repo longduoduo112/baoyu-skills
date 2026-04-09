@@ -2,6 +2,14 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.97.0 - 2026-04-09
+
+### 新功能
+- `baoyu-image-cards`：新增 `sketch-notes` 风格、配色系统（`macaron`、`warm`、`neon`）及 3 个新预设（`hand-drawn-edu`、`sketch-card`、`sketch-summary`）
+
+### 修复
+- `baoyu-xhs-images`：优化已弃用技能描述以改善路由匹配
+
 ## 1.96.0 - 2026-04-09
 
 ### 新功能

@@ -2,6 +2,14 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.97.0 - 2026-04-09
+
+### Features
+- `baoyu-image-cards`: add `sketch-notes` style, palette system (`macaron`, `warm`, `neon`), and 3 new presets (`hand-drawn-edu`, `sketch-card`, `sketch-summary`)
+
+### Fixes
+- `baoyu-xhs-images`: improve deprecated skill description for better routing
+
 ## 1.96.0 - 2026-04-09
 
 ### Features
