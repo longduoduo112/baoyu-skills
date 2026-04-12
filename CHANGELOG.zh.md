@@ -2,6 +2,11 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.101.0 - 2026-04-12
+
+### 新功能
+- `baoyu-imagine`：改进 Replicate 服务商兼容性 —— 针对不同模型系列（nano-banana、Seedream 4.5、Seedream 5 Lite、Wan 2.7 Image）实现专属输入构建器和验证器；将默认模型更新为 `google/nano-banana-2`；修复 Seedream 4.5 自定义尺寸编码（改用 width/height schema）；修复不支持的 Replicate 模型的宽高比默认值继承问题；在请求到达 API 前拦截多图请求 (by @justnode)
+
 ## 1.100.0 - 2026-04-12
 
 ### 新功能

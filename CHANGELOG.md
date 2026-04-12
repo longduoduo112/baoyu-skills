@@ -2,6 +2,11 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.101.0 - 2026-04-12
+
+### Features
+- `baoyu-imagine`: improve Replicate provider compatibility — route models through family-specific input builders and validators (nano-banana, Seedream 4.5, Seedream 5 Lite, Wan 2.7 Image); update default model to `google/nano-banana-2`; fix Seedream 4.5 custom size encoding to use width/height schema; fix aspect-ratio default inheritance for unsupported Replicate models; block multi-output requests before they reach the API (by @justnode)
+
 ## 1.100.0 - 2026-04-12
 
 ### Features
