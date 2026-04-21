@@ -2,6 +2,12 @@
 
 English | [中文](./CHANGELOG.zh.md)
 
+## 1.111.0 - 2026-04-21
+
+### Refactor
+- Unify image-backend resolution across all image-consuming skills (`baoyu-infographic`, `baoyu-comic`, `baoyu-cover-image`, `baoyu-image-cards`, `baoyu-article-illustrator`, `baoyu-slide-deck`, `baoyu-xhs-images`): add a single `preferred_image_backend` preference field (`auto | ask | <backend-id>`) and replace the stateless ask-once rule with a 4-step resolution (current-request override → saved preference → auto-select → ask). Runtime-native tools (Codex `imagegen`, Hermes `image_generate`) are preferred by default; existing `EXTEND.md` files without the field are treated as `auto` with no schema bump.
+- Add a top-level `## Changing Preferences` section to each image-consuming skill as a first-class surface for pinning the backend and editing common one-line preferences.
+
 ## 1.110.0 - 2026-04-21
 
 ### Features

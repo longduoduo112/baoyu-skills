@@ -2,6 +2,12 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.111.0 - 2026-04-21
+
+### 重构
+- 统一所有图片生成类技能（`baoyu-infographic`、`baoyu-comic`、`baoyu-cover-image`、`baoyu-image-cards`、`baoyu-article-illustrator`、`baoyu-slide-deck`、`baoyu-xhs-images`）的后端选择规则：新增单一 `preferred_image_backend` 偏好字段（`auto | ask | <backend-id>`），用 4 步解析规则（当前请求覆盖 → 已保存偏好 → 自动选择 → 询问用户）替换原有的无状态询问规则。默认优先使用运行时原生工具（如 Codex `imagegen`、Hermes `image_generate`）；未设置该字段的现有 `EXTEND.md` 文件视为 `auto`，无需升级 schema 版本。
+- 在每个图片技能中新增顶级 `## Changing Preferences` 章节,作为固定后端和修改常用偏好的一级入口。
+
 ## 1.110.0 - 2026-04-21
 
 ### 新功能
