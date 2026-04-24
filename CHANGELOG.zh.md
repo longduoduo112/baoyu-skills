@@ -2,6 +2,18 @@
 
 [English](./CHANGELOG.md) | 中文
 
+## 1.112.0 - 2026-04-24
+
+### 新功能
+- `baoyu-article-illustrator`：当内容分析未检测到明确信号时，将 `hand-drawn-edu`（infographic + sketch-notes + macaron）作为通用默认预设 —— 暖奶油色纸面背景、黑色手绘线条、柔和马卡龙色块。`sketch-notes` 升级为 infographic / flowchart / comparison / framework 自动选择的首选风格；重写 sketch-notes 风格规范（马卡龙调色板、标准单页布局、仅限示意图的规则）；新增对应的 prompt 模板块和默认工作流规则。
+- `baoyu-article-illustrator`：新增 `hand-drawn-edu-flow`（flowchart）和 `hand-drawn-edu-compare`（comparison）两个预设，保持相同的温暖教育风格。
+
+### 破坏性变更
+- `baoyu-article-illustrator`：`hand-drawn-edu` 预设的类型由 `flowchart` 改为 `infographic`。依赖原有流程图行为的用户请改用新增的 `hand-drawn-edu-flow` 预设。
+
+### 修复
+- `baoyu-post-to-x`：为 `scripts/md-to-html.ts` 添加入口守卫，确保 `x-article.ts` 导入 `parseMarkdown` 时不再触发 CLI 入口逻辑。与 `baoyu-post-to-weibo` 此前的修复保持一致。
+
 ## 1.111.1 - 2026-04-21
 
 ### 文档
