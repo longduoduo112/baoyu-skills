@@ -72620,15 +72620,32 @@ import path5 from "node:path";
 function replaceMarkdownImagesWithPlaceholders(markdown2, placeholderPrefix) {
   const images = [];
   let imageCounter = 0;
-  const rewritten = markdown2.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt, src) => {
+  let lastIndex = 0;
+  let rewritten = "";
+  const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)|!\[\[([^\]\n]+)\]\]/g;
+  for (const match of markdown2.matchAll(imagePattern)) {
+    const fullMatch = match[0];
+    const matchIndex = match.index ?? 0;
+    const markdownAlt = match[1];
+    const markdownSrc = match[2];
+    const wikilinkTarget = match[3];
+    const wikilinkImage = wikilinkTarget ? parseObsidianImageWikilink(wikilinkTarget) : null;
+    if (wikilinkTarget && !wikilinkImage) {
+      continue;
+    }
+    const originalPath = wikilinkImage?.originalPath ?? markdownSrc ?? "";
+    const alt = wikilinkImage?.alt ?? markdownAlt ?? "";
     const placeholder = `${placeholderPrefix}${++imageCounter}`;
+    rewritten += markdown2.slice(lastIndex, matchIndex);
     images.push({
       alt,
-      originalPath: src,
+      originalPath,
       placeholder
     });
-    return placeholder;
-  });
+    rewritten += placeholder;
+    lastIndex = matchIndex + fullMatch.length;
+  }
+  rewritten += markdown2.slice(lastIndex);
   return { images, markdown: rewritten };
 }
 function getImageExtension(urlOrPath) {
@@ -72683,13 +72700,7 @@ async function resolveImagePath(imagePath, baseDir, tempDir, logLabel = "baoyu-m
     }
     return localPath;
   }
-  const decoded = safeDecodeImagePath(imagePath);
-  const resolved = resolveAgainstBaseDir(decoded, baseDir);
-  const resolvedWithFallback = resolveLocalWithFallback(resolved, logLabel);
-  if (decoded === imagePath || fs5.existsSync(resolvedWithFallback)) {
-    return resolvedWithFallback;
-  }
-  return resolveLocalWithFallback(resolveAgainstBaseDir(imagePath, baseDir), logLabel);
+  return resolveLocalImagePath(imagePath, baseDir, logLabel);
 }
 async function resolveContentImages(images, baseDir, tempDir, logLabel = "baoyu-md") {
   const resolved = [];
@@ -72701,10 +72712,50 @@ async function resolveContentImages(images, baseDir, tempDir, logLabel = "baoyu-
   }
   return resolved;
 }
-function resolveLocalWithFallback(resolved, logLabel) {
+function parseObsidianImageWikilink(target) {
+  const separatorIndex = target.indexOf("|");
+  const originalPath = (separatorIndex === -1 ? target : target.slice(0, separatorIndex)).trim();
+  const alt = separatorIndex === -1 ? "" : target.slice(separatorIndex + 1).trim();
+  if (!hasExplicitImageExtension(originalPath)) {
+    return null;
+  }
+  return { originalPath, alt };
+}
+function hasExplicitImageExtension(value2) {
+  return /\.(?:jpe?g|png|gif|webp)(?:[?#].*)?$/i.test(value2);
+}
+function resolveLocalImagePath(imagePath, baseDir, logLabel) {
+  const decoded = safeDecodeImagePath(imagePath);
+  const decodedResolved = resolveAgainstBaseDir(decoded, baseDir);
+  const decodedWithFallback = resolveLocalWithFallback(decodedResolved, logLabel, buildAttachmentFallbackPath(decoded, baseDir));
+  if (decoded === imagePath || fs5.existsSync(decodedWithFallback)) {
+    return decodedWithFallback;
+  }
+  return resolveLocalWithFallback(resolveAgainstBaseDir(imagePath, baseDir), logLabel, buildAttachmentFallbackPath(imagePath, baseDir));
+}
+function resolveLocalWithFallback(resolved, logLabel, attachmentResolved) {
   if (fs5.existsSync(resolved)) {
     return resolved;
   }
+  if (attachmentResolved && fs5.existsSync(attachmentResolved)) {
+    logImageFallback(resolved, attachmentResolved, logLabel);
+    return attachmentResolved;
+  }
+  const originalAlternative = findExtensionFallback(resolved);
+  if (originalAlternative) {
+    logImageFallback(resolved, originalAlternative, logLabel);
+    return originalAlternative;
+  }
+  if (attachmentResolved) {
+    const attachmentAlternative = findExtensionFallback(attachmentResolved);
+    if (attachmentAlternative) {
+      logImageFallback(resolved, attachmentAlternative, logLabel);
+      return attachmentAlternative;
+    }
+  }
+  return resolved;
+}
+function findExtensionFallback(resolved) {
   const ext = path5.extname(resolved);
   const base = ext ? resolved.slice(0, -ext.length) : resolved;
   const alternatives = [
@@ -72719,10 +72770,12 @@ function resolveLocalWithFallback(resolved, logLabel) {
   for (const alternative of alternatives) {
     if (!fs5.existsSync(alternative))
       continue;
-    console.error(`[${logLabel}] Image fallback: ${path5.basename(resolved)} -> ${path5.basename(alternative)}`);
     return alternative;
   }
-  return resolved;
+  return null;
+}
+function logImageFallback(fromPath, toPath, logLabel) {
+  console.error(`[${logLabel}] Image fallback: ${path5.basename(fromPath)} -> ${path5.basename(toPath)}`);
 }
 function safeDecodeImagePath(imagePath) {
   try {
@@ -72733,6 +72786,12 @@ function safeDecodeImagePath(imagePath) {
 }
 function resolveAgainstBaseDir(imagePath, baseDir) {
   return path5.isAbsolute(imagePath) ? imagePath : path5.resolve(baseDir, imagePath);
+}
+function buildAttachmentFallbackPath(imagePath, baseDir) {
+  if (path5.isAbsolute(imagePath)) {
+    return;
+  }
+  return path5.resolve(baseDir, "Attachments", imagePath);
 }
 // src/mermaid-preprocess.ts
 import fs6 from "node:fs";
