@@ -4,6 +4,15 @@
 
 宝玉分享的 AI Agent 技能集（适用于 Claude Code、Codex 等），提升日常工作效率。
 
+## 作者的图书
+
+<img width="500" height="500" alt="图解 Skill —— AI 提效实战指南" src="https://github.com/user-attachments/assets/6caef6a2-6f11-490e-a43b-e810df8e9354" />
+
+作者的图书《图解 Skill —— AI 提效实战指南》系统讲解如何设计、编写、安装和迭代 Skill，并配有完整示例、提示词、插图生成工作流和章节配套资源。
+
+- 官方配套仓库：[JimLiu/Illustrated-Agent-Skills](https://github.com/JimLiu/Illustrated-Agent-Skills)
+- 购买链接：[京东购买](https://u.jd.com/RDY9YwC)
+
 ## 前置要求
 
 - 已安装 Node.js 环境
