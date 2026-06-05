@@ -36,17 +36,6 @@ export function parseAspectRatio(ar: string): { width: number; height: number } 
   return { width: w, height: h };
 }
 
-function gcd(a: number, b: number): number {
-  let x = Math.abs(Math.round(a));
-  let y = Math.abs(Math.round(b));
-  while (y !== 0) {
-    const next = x % y;
-    x = y;
-    y = next;
-  }
-  return x || 1;
-}
-
 export function snapDim(n: number): number {
   return Math.max(32, Math.round(n / 32) * 32);
 }
@@ -57,14 +46,11 @@ export function resolveSize(args: Pick<CliArgs, "size" | "aspectRatio">): string
   if (args.aspectRatio) {
     const parsed = parseAspectRatio(args.aspectRatio);
     if (parsed) {
-      const g = gcd(parsed.width, parsed.height);
-      const rw = Math.round(parsed.width / g);
-      const rh = Math.round(parsed.height / g);
-      if (rw === 1 && rh === 1) return "1024x1024";
+      if (parsed.width === 1 && parsed.height === 1) return "1024x1024";
       const maxEdge = 2048;
-      const scale = Math.max(1, Math.floor(maxEdge / Math.max(rw, rh)));
-      const width = rw * scale;
-      const height = rh * scale;
+      const scale = Math.max(1, Math.floor(maxEdge / Math.max(parsed.width, parsed.height)));
+      const width = parsed.width * scale;
+      const height = parsed.height * scale;
       return `${snapDim(width)}x${snapDim(height)}`;
     }
   }
